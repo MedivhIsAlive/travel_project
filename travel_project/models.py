@@ -34,8 +34,7 @@ class ProjectPlace(models.Model):
         on_delete=models.CASCADE,
         related_name="places"
     )
-    # really wanted to add places model here, but with contraints for relying on one external api
-    # it doesnt make much sense to create model with one single field
+    # feels really uncomfortable doing this without ForeignKey
     external_id = models.CharField(max_length=100)
     notes = models.TextField(blank=True, null=True)
     visited = models.BooleanField(default=False)
@@ -49,8 +48,3 @@ class ProjectPlace(models.Model):
                 fields=["project", "external_id"]
             )
         ]
-
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        if self.visited:
-            self.project.sync_status()

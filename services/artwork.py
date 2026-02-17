@@ -1,10 +1,8 @@
-# services/artwork.py
 from django.core.cache import cache
 
+from services import APIError, NotFoundError
+from services.api.aic import aic_client
 from services.api.models import AICArtwork
-
-from .api.aic import aic_client
-from .api.base_client import APIError, NotFoundError
 
 CACHE_TTL = 60 * 60 * 6
 
@@ -24,6 +22,6 @@ def validate_artwork_exists(external_id: int) -> None:
     try:
         get_artwork(external_id)
     except NotFoundError:
-        raise ValueError("Artwork not found in AIC API")
+        raise ValueError(f"Artwork {external_id} not found in AIC API")
     except APIError:
-        raise ValueError("Could not validate artwork, try again later")
+        raise ValueError(f"Could not validate artwork {external_id}, try again later")

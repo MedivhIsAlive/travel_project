@@ -8,14 +8,6 @@ class AICClient(BaseAPIClient):
     base_url = "https://api.artic.edu/api/v1"
 
     def get_artwork(self, external_id: int, **kwargs) -> AICArtwork:
-        # TODO: cache should be not here, but in a service that calls this client
-        # cache_key = f"aic:artwork:{external_id}"
-
-        # if cached := cache.get(cache_key):
-        #     return cached
-
-        # cache.set(cache_key, data, 60 * 60 * 6)
-
         data = self.request(
             self.client.get, f"{self.base_url}/artworks/{external_id}", **kwargs,
         )
