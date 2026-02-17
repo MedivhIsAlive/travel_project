@@ -7,7 +7,11 @@ from services.api.models import AICArtwork
 CACHE_TTL = 60 * 60 * 6
 
 
-def get_artwork(external_id: int) -> AICArtwork:
+class ArtworkValidationError(Exception):
+    pass
+
+
+def get_artwork(external_id: str) -> AICArtwork:
     cache_key = f"aic:artwork:{external_id}"
 
     if cached := cache.get(cache_key):
@@ -18,10 +22,10 @@ def get_artwork(external_id: int) -> AICArtwork:
     return data
 
 
-def validate_artwork_exists(external_id: int) -> None:
+def validate_artwork_exists(external_id: str) -> AICArtwork:
     try:
-        get_artwork(external_id)
+        return get_artwork(external_id)
     except NotFoundError:
-        raise ValueError(f"Artwork {external_id} not found in AIC API")
+        raise ArtworkValidationError(f"Artwork {external_id} not found in AIC API")
     except APIError:
-        raise ValueError(f"Could not validate artwork {external_id}, try again later")
+        raise ArtworkValidationError(f"Could not validate artwork {external_id}, try again later")

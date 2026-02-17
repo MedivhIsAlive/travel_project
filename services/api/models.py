@@ -1,16 +1,13 @@
-from typing import TypedDict
+from dataclasses import dataclass
+from typing import Any
 
 
-class AICThumbnail(TypedDict):
-    lqip: str
-    width: int
-    height: int
-
-
-class AICArtwork(TypedDict):
+@dataclass
+class AICArtwork:
     id: int
     title: str
     artist_display: str
     date_display: str
-    thumbnail: AICThumbnail | None
+    thumbnail: dict[str, Any] | None
     image_id: str | None
+
