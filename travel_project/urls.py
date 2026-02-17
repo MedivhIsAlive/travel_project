@@ -1,6 +1,5 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-
 from travel_project.views import ProjectPlaceViewSet, TravelProjectViewSet
 
 router = DefaultRouter()
@@ -14,7 +13,7 @@ urlpatterns = [
     ),
     path(
         "projects/<int:project_pk>/places/<str:external_id>/",
-        ProjectPlaceViewSet.as_view({"get": "retrieve", "patch": "partial_update"}),
+        ProjectPlaceViewSet.as_view({"get": "retrieve", "patch": "partial_update", "delete": "destroy"}),
         name="project-place-detail",
     ),
     path("", include(router.urls)),

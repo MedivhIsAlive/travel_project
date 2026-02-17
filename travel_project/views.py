@@ -1,8 +1,9 @@
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import filters, status
-from rest_framework.mixins import CreateModelMixin, ListModelMixin, RetrieveModelMixin, UpdateModelMixin
+from rest_framework.mixins import CreateModelMixin, DestroyModelMixin, ListModelMixin, RetrieveModelMixin, UpdateModelMixin
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
@@ -96,8 +97,17 @@ class TravelProjectViewSet(ModelViewSet):
         request=ProjectPlaceUpdateSerializer,
         responses=ProjectPlaceSerializer,
     ),
+    destroy=extend_schema(
+        summary="Remove a place from a project",
+        responses={
+            204: OpenApiResponse(description="Place removed"),
+            409: OpenApiResponse(description="Cannot remove the last place from a project"),
+        },
+    ),
 )
-class ProjectPlaceViewSet(ListModelMixin, RetrieveModelMixin, CreateModelMixin, UpdateModelMixin, GenericViewSet):
+class ProjectPlaceViewSet(
+    ListModelMixin, RetrieveModelMixin, CreateModelMixin, UpdateModelMixin, DestroyModelMixin, GenericViewSet
+):
     pagination_class = None
     lookup_field = "external_id"
 
@@ -128,6 +138,24 @@ class ProjectPlaceViewSet(ListModelMixin, RetrieveModelMixin, CreateModelMixin, 
         place = serializer.save()
         place.project.sync_status()
         return Response(ProjectPlaceSerializer(place).data, status=status.HTTP_201_CREATED)
+
+    def destroy(self, request, *args, **kwargs):
+        place = self.get_object()
+        project = place.project
+
+        with transaction.atomic():
+            TravelProject.objects.select_for_update().get(pk=project.pk)
+
+            if project.places.count() <= 1:
+                return Response(
+                    {"detail": "Cannot remove the last place from a project."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            place.delete()
+
+        project.sync_status()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def perform_update(self, serializer):
         serializer.save()

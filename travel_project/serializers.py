@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from django.db import transaction
 from rest_framework import serializers
 
 from services.artwork import ArtworkValidationError, validate_artwork_exists
@@ -61,7 +62,12 @@ class _RepresentAsDetailMixin:
 
 
 class TravelProjectCreateSerializer(_RepresentAsDetailMixin, serializers.ModelSerializer):
-    places = serializers.ListField(child=serializers.DictField(), required=False, max_length=10)
+    places = serializers.ListField(
+        child=serializers.DictField(),
+        required=True,
+        min_length=1,
+        max_length=10,
+    )
 
     class Meta:
         model = TravelProject
@@ -89,12 +95,9 @@ class TravelProjectCreateSerializer(_RepresentAsDetailMixin, serializers.ModelSe
     def create(self, validated_data):
         places_data = validated_data.pop("places", [])
         project = TravelProject.objects.create(**validated_data)
-
-        if places_data:
-            ProjectPlace.objects.bulk_create(
-                [_build_place(project, p["external_id"], p.pop("_artwork"), p.get("notes", "")) for p in places_data]
-            )
-
+        ProjectPlace.objects.bulk_create(
+            [_build_place(project, p["external_id"], p.pop("_artwork"), p.get("notes", "")) for p in places_data]
+        )
         return project
 
 
@@ -129,11 +132,27 @@ class AddPlaceSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         artwork = validated_data.pop("artwork")
-        place = _build_place(
-            self.context["project"],
-            validated_data["external_id"],
-            artwork,
-            validated_data.get("notes", ""),
-        )
-        place.save()
+        project = self.context["project"]
+
+        with transaction.atomic():
+            TravelProject.objects.select_for_update().get(pk=project.pk)
+
+            if project.places.count() >= 10:
+                raise serializers.ValidationError(
+                    {"external_id": "Project already has the maximum of 10 places."}
+                )
+
+            if project.places.filter(external_id=validated_data["external_id"]).exists():
+                raise serializers.ValidationError(
+                    {"external_id": f"Place {validated_data['external_id']} already exists in this project."}
+                )
+
+            place = _build_place(
+                project,
+                validated_data["external_id"],
+                artwork,
+                validated_data.get("notes", ""),
+            )
+            place.save()
+
         return place
